@@ -1,6 +1,6 @@
 services:
   api:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
@@ -11,4 +11,19 @@ services:
       - .env
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-development} # Default to development if not set
+    depends_on:
+      - postgres
     restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
