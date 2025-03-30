@@ -25,6 +25,7 @@ const MermaidChart = ({ chart, zoomingEnabled = true }: MermaidChartProps) => {
         rankSpacing: 50,
         padding: 15,
       },
+      securityLevel: 'loose',
       themeCSS: `
         .clickable {
           transition: transform 0.2s ease;

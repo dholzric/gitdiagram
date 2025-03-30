@@ -94,7 +94,14 @@ def process_click_events(diagram: str, username: str, repo: str, branch: str) ->
     """
     Process click events in Mermaid diagram to include full GitHub URLs.
     Detects if path is file or directory and uses appropriate URL format.
+    Ensures valid Mermaid syntax is maintained and fixes common syntax errors.
     """
+    # Log the original diagram for debugging
+    print("Original diagram before processing:")
+    print(diagram)
+
+    # Clean up the diagram - remove any markdown code fences if present
+    diagram = diagram.replace("```mermaid", "").replace("```", "").strip()
 
     def replace_path(match):
         # Extract the path from the click event
@@ -108,12 +115,35 @@ def process_click_events(diagram: str, username: str, repo: str, branch: str) ->
         path_type = "blob" if is_file else "tree"
         full_url = f"{base_url}/{path_type}/{branch}/{path}"
 
-        # Return the full click event with the new URL
+        # Return the full click event with the new URL, ensuring proper quoting
         return f'click {match.group(1)} "{full_url}"'
 
     # Match click events: click ComponentName "path/to/something"
     click_pattern = r'click ([^\s"]+)\s+"([^"]+)"'
-    return re.sub(click_pattern, replace_path, diagram)
+    processed_diagram = re.sub(click_pattern, replace_path, diagram)
+    
+    # Ensure the diagram starts with the correct Mermaid syntax
+    if not processed_diagram.strip().startswith("flowchart") and not processed_diagram.strip().startswith("graph"):
+        processed_diagram = "flowchart TD\n" + processed_diagram
+    
+    # Fix common syntax errors
+    # 1. Ensure there are no spaces in relationship labels
+    processed_diagram = re.sub(r'-->[ ]*\|([^|]*)\|[ ]*', r'-->|\1|', processed_diagram)
+    
+    # 2. Ensure node IDs with special characters are properly quoted
+    def quote_node_ids(match):
+        node_id = match.group(1)
+        if any(char in node_id for char in "[](){}:;,/\\<>") and not (node_id.startswith('"') and node_id.endswith('"')):
+            return f'"{node_id}"'
+        return node_id
+    
+    processed_diagram = re.sub(r'([A-Za-z0-9_-]+[^"\s]*)', quote_node_ids, processed_diagram)
+    
+    # Log the processed diagram for debugging
+    print("Processed diagram after fixing:")
+    print(processed_diagram)
+    
+    return processed_diagram
 
 
 @router.post("/stream")

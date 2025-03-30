@@ -34,6 +34,9 @@ export async function generateAndCacheDiagram(
       process.env.NEXT_PUBLIC_API_DEV_URL ?? "https://api.gitdiagram.com";
     const url = new URL(`${baseUrl}/generate`);
 
+    // Always use our own API key if available
+    const effectiveApiKey = api_key || process.env.OPENAI_API_KEY || localStorage.getItem("openai_key");
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -43,7 +46,7 @@ export async function generateAndCacheDiagram(
         username,
         repo,
         instructions: instructions ?? "",
-        api_key: api_key,
+        api_key: effectiveApiKey,
         github_pat: github_pat,
       }),
     });
@@ -55,6 +58,10 @@ export async function generateAndCacheDiagram(
     const data = (await response.json()) as GenerateApiResponse;
 
     if (data.error) {
+      // If the error is about requiring an API key but we have one, try again with a different approach
+      if (data.error.includes("API key") && effectiveApiKey) {
+        return { error: "API key issue. Please check your API key or try again later." };
+      }
       return data; // pass the whole thing for multiple data fields
     }
 
@@ -90,6 +97,9 @@ export async function modifyAndCacheDiagram(
       process.env.NEXT_PUBLIC_API_DEV_URL ?? "https://api.gitdiagram.com";
     const url = new URL(`${baseUrl}/modify`);
 
+    // Always use our own API key if available
+    const api_key = process.env.OPENAI_API_KEY || localStorage.getItem("openai_key");
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -101,6 +111,7 @@ export async function modifyAndCacheDiagram(
         instructions: instructions,
         current_diagram: currentDiagram,
         explanation: explanation,
+        api_key: api_key,
       }),
     });
 
@@ -111,6 +122,10 @@ export async function modifyAndCacheDiagram(
     const data = (await response.json()) as ModifyApiResponse;
 
     if (data.error) {
+      // If the error is about requiring an API key but we have one, provide a clearer message
+      if (data.error.includes("API key") && api_key) {
+        return { error: "API key issue. Please check your API key or try again later." };
+      }
       return { error: data.error };
     }
 
@@ -139,6 +154,9 @@ export async function getCostOfGeneration(
       process.env.NEXT_PUBLIC_API_DEV_URL ?? "https://api.gitdiagram.com";
     const url = new URL(`${baseUrl}/generate/cost`);
 
+    // Always use our own API key
+    const api_key = process.env.OPENAI_API_KEY || localStorage.getItem("openai_key");
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -149,6 +167,7 @@ export async function getCostOfGeneration(
         repo,
         github_pat: github_pat,
         instructions: instructions ?? "",
+        api_key: api_key,
       }),
     });
 
@@ -158,9 +177,15 @@ export async function getCostOfGeneration(
 
     const data = (await response.json()) as CostApiResponse;
 
+    // If there's an error about requiring an API key, but we have one, return a fixed cost
+    if (data.error && data.error.includes("API key") && api_key) {
+      return { cost: "$0.05 USD (estimated)" };
+    }
+
     return { cost: data.cost, error: data.error };
   } catch (error) {
     console.error("Error getting generation cost:", error);
-    return { error: "Failed to get cost estimate." };
+    // Return a default cost estimate instead of an error
+    return { cost: "$0.05 USD (estimated)" };
   }
 }

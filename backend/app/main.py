@@ -2,6 +2,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+import sys
+import os
+# Use relative path instead of hardcoded path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.routers import generate, modify
 from app.core.limiter import limiter
 from typing import cast
@@ -13,7 +17,7 @@ import os
 app = FastAPI()
 
 
-origins = ["http://localhost:3000", "https://gitdiagram.com"]
+origins = ["http://localhost:3000", "https://gitdiagram.com", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,3 +44,7 @@ app.include_router(modify.router)
 # @limiter.limit("100/day")
 async def root(request: Request):
     return {"message": "Hello from GitDiagram API!"}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}

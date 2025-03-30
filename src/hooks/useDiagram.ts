@@ -65,6 +65,10 @@ export function useDiagram(username: string, repo: string) {
       try {
         const baseUrl =
           process.env.NEXT_PUBLIC_API_DEV_URL ?? "https://api.gitdiagram.com";
+        
+        // Always use our own API key if available
+        const api_key = process.env.OPENAI_API_KEY || localStorage.getItem("openai_key");
+        
         const response = await fetch(`${baseUrl}/generate/stream`, {
           method: "POST",
           headers: {
@@ -74,7 +78,7 @@ export function useDiagram(username: string, repo: string) {
             username,
             repo,
             instructions,
-            api_key: localStorage.getItem("openai_key") ?? undefined,
+            api_key: api_key,
             github_pat: githubPat,
           }),
         });
@@ -266,31 +270,19 @@ export function useDiagram(username: string, repo: string) {
         return;
       }
 
-      // TEMP: LET USERS HAVE INFINITE GENERATIONS
-      // Only check for API key if we need to generate a new diagram
-      // const storedApiKey = localStorage.getItem("openai_key");
-      // if (hasUsedFreeGeneration && !storedApiKey) {
-      //   setError(
-      //     "You've used your one free diagram. Please enter your API key to continue. As a student, I can't afford to keep it totally free and I hope you understand :)",
-      //   );
-      //   setState({ status: "error", error: "API key required" });
-      //   return;
-      // }
+      // Always use our own API key if available
+      const api_key = process.env.OPENAI_API_KEY || localStorage.getItem("openai_key");
 
-      // Get cost estimate
+      // Get cost estimate with our API key
       const costEstimate = await getCostOfGeneration(
         username,
         repo,
         "",
-        github_pat ?? undefined,
+        github_pat ?? undefined
       );
 
-      if (costEstimate.error) {
+      if (costEstimate.error && !api_key) {
         console.error("Cost estimation failed:", costEstimate.error);
-        // if (costEstimate.requires_api_key) {
-        //   setTokenCount(costEstimate.token_count ?? 0);
-        // }
-        // TODO: come to think of it, why is requires api key based on tokens? this unimplemented option is smarter. Add API key dialog
         setError(costEstimate.error);
         return;
       }
@@ -330,8 +322,13 @@ export function useDiagram(username: string, repo: string) {
     setError("");
     setCost("");
     try {
+      const github_pat = localStorage.getItem("github_pat");
+      
+      // Always use our own API key if available
+      const api_key = process.env.OPENAI_API_KEY || localStorage.getItem("openai_key");
+      
       // Start streaming generation with instructions
-      await generateDiagram(instructions);
+      await generateDiagram(instructions, github_pat ?? undefined);
     } catch (error) {
       console.error("Error modifying diagram:", error);
       setError("Failed to modify diagram. Please try again later.");
@@ -351,22 +348,19 @@ export function useDiagram(username: string, repo: string) {
     setCost("");
     try {
       const github_pat = localStorage.getItem("github_pat");
+      
+      // Always use our own API key if available
+      const api_key = process.env.OPENAI_API_KEY || localStorage.getItem("openai_key");
 
-      // TEMP: LET USERS HAVE INFINITE GENERATIONS
-      // const storedApiKey = localStorage.getItem("openai_key");
+      // Get cost estimate with our API key
+      const costEstimate = await getCostOfGeneration(
+        username, 
+        repo, 
+        "",
+        github_pat ?? undefined
+      );
 
-      // Check if user has used their free generation and doesn't have an API key
-      // if (hasUsedFreeGeneration && !storedApiKey) {
-      //   setError(
-      //     "You've used your one free diagram. Please enter your API key to continue. As a student, I can't afford to keep it totally free and I hope you understand :)",
-      //   );
-      //   setLoading(false);
-      //   return;
-      // }
-
-      const costEstimate = await getCostOfGeneration(username, repo, "");
-
-      if (costEstimate.error) {
+      if (costEstimate.error && !api_key) {
         console.error("Cost estimation failed:", costEstimate.error);
         setError(costEstimate.error);
         return;
@@ -446,8 +440,10 @@ export function useDiagram(username: string, repo: string) {
     // Store the key first
     localStorage.setItem("openai_key", apiKey);
 
-    // Then generate diagram using stored key
+    // Then generate diagram using stored key and our own API key if available
     const github_pat = localStorage.getItem("github_pat");
+    const api_key = process.env.OPENAI_API_KEY || apiKey;
+    
     try {
       await generateDiagram("", github_pat ?? undefined);
     } catch (error) {
