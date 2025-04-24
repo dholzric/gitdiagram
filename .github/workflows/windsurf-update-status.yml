@@ -1,0 +1,24 @@
+name: Update Project Status On Task Change
+on:
+  file_change:
+    paths:
+      - hgrp.pm/ProjectStatus.json
+
+jobs:
+  update-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Calculate overall percent done
+        run: |
+          node scripts/updateProjectStatus.js
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "windsurf-bot"
+          git config --global user.email "windsurf-bot@hgrp.com"
+          git add hgrp.pm/ProjectStatus.json
+          git commit -m "Update project status [windsurf]"
+          git push
