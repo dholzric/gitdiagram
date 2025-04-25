@@ -1,0 +1,19 @@
+name: Update Project Status On Task Change
+on:
+  file_change:
+    paths:
+      - hgrp.pm/ProjectStatus.json
+
+jobs:
+  update-status:
+    runs-on: local
+    steps:
+      - name: Calculate overall percent done
+        run: node scripts/updateProjectStatus.js
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "cline-bot"
+          git config --global user.email "cline-bot@hgrp.com"
+          git add hgrp.pm/ProjectStatus.json
+          git commit -m "Update project status [cline]"
+          git push
